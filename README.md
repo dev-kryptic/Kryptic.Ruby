@@ -1,11 +1,11 @@
-# krypticdev (Ruby SDK)
+# kryptic-daemon (Ruby daemon client)
 
 ```ruby
 # Gemfile
-gem "krypticdev", group: :development
+gem "kryptic-daemon", group: :development
 
 # config/application.rb
-require "krypticdev"
+require "kryptic"
 Kryptic.inject! if Rails.env.development?
 ```
 

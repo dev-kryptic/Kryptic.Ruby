@@ -5,7 +5,7 @@ require "socket"
 require "tmpdir"
 require "fileutils"
 
-require_relative "../lib/krypticdev"
+require_relative "../lib/kryptic"
 
 class InjectTest < Minitest::Test
   def setup
@@ -28,7 +28,7 @@ class InjectTest < Minitest::Test
   end
 
   def start_mock_daemon(&handler)
-    # Unix socket paths are length-capped — keep them short under /tmp.
+    # Unix socket paths are length-capped; keep them short under /tmp.
     @socket_dir = Dir.mktmpdir("kd", "/tmp")
     path = File.join(@socket_dir, "d.sock")
     @server = UNIXServer.new(path)

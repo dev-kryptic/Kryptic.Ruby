@@ -1,9 +1,9 @@
-# The Kryptic Ruby SDK. During development startup, Kryptic.inject! fetches the
+# The Kryptic daemon client for Ruby. During development startup, Kryptic.inject! fetches the
 # current project's secrets from the local Kryptic daemon and puts them into ENV.
-# Outside development it is a no-op. It never raises — a missing daemon means the
+# Outside development it is a no-op. It never raises; a missing daemon means the
 # application simply starts with whatever environment it already has.
 #
-# Protocol: daemon/PROTOCOL.md v1 (newline-delimited JSON over a local socket —
+# Protocol: daemon/PROTOCOL.md v1 (newline-delimited JSON over a local socket,
 # a unix domain socket on macOS/Linux, a named pipe on Windows).
 
 require "json"
@@ -27,7 +27,7 @@ module Kryptic
 
     project_id ||= ENV["KRYPTIC_PROJECT_ID"] || config&.fetch("projectId", nil)
     unless project_id
-      warn_once "no kryptic.json found (and no KRYPTIC_PROJECT_ID set) — nothing to inject."
+      warn_once "no kryptic.json found (and no KRYPTIC_PROJECT_ID set) - nothing to inject."
       return Result.new(injected: 0, skipped: true, reason: "no_project")
     end
 
@@ -37,7 +37,7 @@ module Kryptic
     begin
       response = request(project_id, environment, timeout_ms / 1000.0)
     rescue StandardError => e
-      warn_once "daemon not reachable (#{e.class}: #{e.message}) — continuing without injected secrets."
+      warn_once "daemon not reachable (#{e.class}: #{e.message}) - continuing without injected secrets."
       return Result.new(injected: 0, skipped: true, reason: "daemon_unreachable")
     end
 
@@ -107,7 +107,7 @@ module Kryptic
   # The daemon serves a byte-mode named pipe, so a plain file handle works.
   # The timeout covers connecting (the pipe can briefly report "busy" between
   # served clients); the read then blocks until the daemon replies, which it
-  # does immediately or not at all — matching the .NET client's semantics.
+  # does immediately or not at all; matching the .NET client's semantics.
   def round_trip_named_pipe(path, line, timeout_seconds)
     deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout_seconds
     pipe = nil
@@ -142,7 +142,7 @@ module Kryptic
         begin
           return JSON.parse(File.read(candidate))
         rescue JSON::ParserError
-          warn_once "could not parse #{candidate} — ignoring it."
+          warn_once "could not parse #{candidate} - ignoring it."
           return nil
         end
       end
