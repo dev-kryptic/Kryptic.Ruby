@@ -1,0 +1,115 @@
+name: Build and publish
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Incoming version override (leave empty to use gemspec version)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Test
+        run: ruby test/test_inject.rb
+
+  publish:
+    needs: test
+    if: >
+      github.actor != 'github-actions[bot]' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Resolve package version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          TAG_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "${INPUT_VERSION:-}" ]; then
+            INCOMING="$INPUT_VERSION"
+          elif [ "$EVENT_NAME" = "push" ] && [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            INCOMING="${TAG_NAME#v}"
+          else
+            INCOMING=""
+          fi
+          VERSION="$(python3 .github/scripts/resolve-package-version.py "${INCOMING}")"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved package version: ${VERSION}"
+
+      - name: Set gemspec version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          path = pathlib.Path("kryptic-daemon-client.gemspec")
+          version = os.environ["VERSION"]
+          text = path.read_text(encoding="utf-8")
+          updated, count = re.subn(
+              r'spec\.version\s*=\s*"[^"]+"',
+              f'spec.version = "{version}"',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("Expected exactly one spec.version in the gemspec")
+          path.write_text(updated, encoding="utf-8")
+          PY
+
+      - name: Build gem
+        run: gem build kryptic-daemon-client.gemspec
+
+      - name: Configure RubyGems credentials
+        uses: rubygems/configure-rubygems-credentials@v2.1.0
+
+      - name: Publish to RubyGems
+        run: gem push kryptic-daemon-client-*.gem
+
+      - name: Commit version bump
+        if: github.ref == 'refs/heads/main'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- kryptic-daemon-client.gemspec; then
+            echo "gemspec already at ${VERSION}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kryptic-daemon-client.gemspec
+          git commit -m "chore: release ${VERSION}"
+          git push

@@ -1,8 +1,8 @@
-# kryptic-daemon (Ruby daemon client)
+# kryptic-daemon-client (Ruby)
 
 ```ruby
 # Gemfile
-gem "kryptic-daemon", group: :development
+gem "kryptic-daemon-client", group: :development
 
 # config/application.rb
 require "kryptic"
