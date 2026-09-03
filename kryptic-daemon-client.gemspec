@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name = "kryptic-daemon-client"
-  spec.version = "0.1.3"
+  spec.version = "0.1.5"
   spec.authors = ["Kryptic"]
   spec.summary = "Kryptic daemon client for Ruby. Passively injects development secrets from the local Kryptic daemon into ENV."
   spec.description = "During development startup, Kryptic.inject! fetches the current project's secrets " \
